@@ -17,6 +17,17 @@ import Anthropic from '@anthropic-ai/sdk';
 import { wrapAnthropicClient, shutdown } from './src/index.js';
 
 async function main() {
+  // Validate required environment variables
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('❌ Error: ANTHROPIC_API_KEY environment variable is required');
+    process.exit(1);
+  }
+
+  if (!process.env.PREFACTOR_API_KEY) {
+    console.error('❌ Error: PREFACTOR_API_KEY environment variable is required');
+    process.exit(1);
+  }
+
   // Create a normal Anthropic client
   const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
@@ -25,7 +36,7 @@ async function main() {
   // Wrap it to enable automatic tracing
   const tracedClient = wrapAnthropicClient(client, {
     agentId: 'example-agent',
-    apiKey: process.env.PREFACTOR_API_KEY!,
+    apiKey: process.env.PREFACTOR_API_KEY,
     apiUrl: process.env.PREFACTOR_API_URL || 'https://api.prefactor.ai',
     captureInputs: true,
     captureOutputs: true,
