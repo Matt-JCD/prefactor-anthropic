@@ -1,5 +1,5 @@
 {
-  "name": "@prefactor/anthropic",
+  "name": "@matt-dev-space/anthropic",
   "version": "0.1.0",
   "description": "Anthropic SDK integration for Prefactor observability",
   "type": "module",

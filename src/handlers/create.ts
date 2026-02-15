@@ -7,6 +7,7 @@ import type { APIPromise } from '@anthropic-ai/sdk';
 import { extractTokenUsage } from '../token-usage.js';
 import type { PrefactorAnthropicConfig } from '../types.js';
 import { createSpan, buildOutputs, handleSpanError } from './utils.js';
+import { secureLogger } from '../secure-logger.js';
 
 export function handleNonStreamingCreate(
   tracer: Tracer,
@@ -27,8 +28,12 @@ export function handleNonStreamingCreate(
           tokenUsage: extractTokenUsage(message),
         });
       } catch (error) {
-        console.error('[Prefactor] Failed to extract outputs/tokens, ending span without data:', error);
-        tracer.endSpan(span, {});
+        secureLogger.error('[Prefactor] Failed to extract outputs/tokens, ending span without data:', error);
+        try {
+          tracer.endSpan(span, {});
+        } catch (endSpanError) {
+          secureLogger.error('[Prefactor] Critical: Failed to end span even without data:', endSpanError);
+        }
       }
     },
     (error: Error) => handleSpanError(tracer, span, error),

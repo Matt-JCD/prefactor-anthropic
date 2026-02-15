@@ -78,6 +78,10 @@ if (typeof process !== 'undefined' && process.on) {
     process.on('beforeExit', () => {
       shutdownCore().catch((error) => {
         logger.error('Error during auto-shutdown:', error);
+        // Set exit code to indicate error during shutdown
+        if (typeof process.exitCode === 'undefined' || process.exitCode === 0) {
+          process.exitCode = 1;
+        }
       });
     });
   } catch (error) {

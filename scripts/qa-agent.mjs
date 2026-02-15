@@ -1,12 +1,18 @@
 #!/usr/bin/env node
 import Anthropic from '@anthropic-ai/sdk';
 import { readFile, readdir, stat, writeFile } from 'fs/promises';
-import { join, relative } from 'path';
+import { join, relative, resolve } from 'path';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 if (!ANTHROPIC_API_KEY) {
   console.error('❌ ANTHROPIC_API_KEY environment variable is required');
+  process.exit(1);
+}
+
+// Validate API key format
+if (!ANTHROPIC_API_KEY.startsWith('sk-ant-')) {
+  console.error('❌ Invalid ANTHROPIC_API_KEY format (expected to start with "sk-ant-")');
   process.exit(1);
 }
 
@@ -16,10 +22,28 @@ const CHECKS = process.argv.includes('--quick')
   : ['security', 'error-handling', 'types', 'performance', 'architecture', 'tests'];
 
 const MAX_FILE_SIZE = 100_000;
+const MAX_DEPTH = 10;
 const RELEVANT_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs'];
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.next', 'coverage', '.qa-tmp']);
 
-async function getSourceFiles(dir, fileList = []) {
+async function getSourceFiles(dir, fileList = [], depth = 0, rootDir = null) {
+  // Initialize root directory on first call
+  if (rootDir === null) {
+    rootDir = resolve(dir);
+  }
+
+  // Prevent excessive recursion
+  if (depth > MAX_DEPTH) {
+    return fileList;
+  }
+
+  // Validate path is within project directory
+  const resolvedDir = resolve(dir);
+  if (!resolvedDir.startsWith(rootDir)) {
+    console.warn(`⚠️  Skipping path outside project directory: ${dir}`);
+    return fileList;
+  }
+
   const entries = await readdir(dir, { withFileTypes: true });
 
   await Promise.all(
@@ -28,7 +52,7 @@ async function getSourceFiles(dir, fileList = []) {
 
       if (entry.isDirectory()) {
         if (!SKIP_DIRS.has(entry.name)) {
-          await getSourceFiles(fullPath, fileList);
+          await getSourceFiles(fullPath, fileList, depth + 1, rootDir);
         }
       } else if (RELEVANT_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
         const stats = await stat(fullPath);
@@ -60,9 +84,28 @@ async function buildContext(files) {
 }
 
 function sanitizeError(error) {
-  // Comprehensive API key sanitization
-  const message = error.message.replace(/sk-[a-z]+-[a-zA-Z0-9_-]+/g, 'sk-***');
-  const stack = error.stack?.replace(/sk-[a-z]+-[a-zA-Z0-9_-]+/g, 'sk-***');
+  // Specific secret sanitization patterns
+  const patterns = [
+    // Anthropic API keys (various formats)
+    { pattern: /sk-ant-api03-[a-zA-Z0-9_-]{95}/g, replacement: 'sk-ant-***' },
+    { pattern: /sk-ant-[a-zA-Z0-9_-]+/g, replacement: 'sk-ant-***' },
+    { pattern: /sk-[a-z]+-[a-zA-Z0-9_-]{20,}/g, replacement: 'sk-***' },
+    // NPM tokens
+    { pattern: /npm_[a-zA-Z0-9]{36}/g, replacement: 'npm_***' },
+    { pattern: /npm_[a-zA-Z0-9]+/g, replacement: 'npm_***' },
+    // Prefactor API tokens (if they follow a pattern)
+    { pattern: /pf_[a-zA-Z0-9_-]+/g, replacement: 'pf_***' },
+  ];
+
+  let message = error.message || '';
+  let stack = error.stack || '';
+
+  // Apply all sanitization patterns
+  for (const { pattern, replacement } of patterns) {
+    message = message.replace(pattern, replacement);
+    stack = stack.replace(pattern, replacement);
+  }
+
   return { message, stack };
 }
 

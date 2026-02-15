@@ -23,8 +23,18 @@ async function main() {
     process.exit(1);
   }
 
+  if (!process.env.ANTHROPIC_API_KEY.startsWith('sk-ant-')) {
+    console.error('❌ Error: Invalid ANTHROPIC_API_KEY format (expected to start with "sk-ant-")');
+    process.exit(1);
+  }
+
   if (!process.env.PREFACTOR_API_KEY) {
     console.error('❌ Error: PREFACTOR_API_KEY environment variable is required');
+    process.exit(1);
+  }
+
+  if (process.env.PREFACTOR_API_KEY.length < 10) {
+    console.error('❌ Error: PREFACTOR_API_KEY appears to be invalid (too short)');
     process.exit(1);
   }
 
@@ -84,8 +94,13 @@ async function main() {
 
   // Graceful shutdown - ensures all spans are sent
   console.log('\n🛑 Shutting down...');
-  await shutdown();
-  console.log('✅ Done!');
+  try {
+    await shutdown();
+    console.log('✅ Done!');
+  } catch (shutdownError) {
+    console.error('❌ Shutdown failed:', shutdownError);
+    throw shutdownError; // Re-throw to ensure process exits with error
+  }
 }
 
 main().catch((error) => {

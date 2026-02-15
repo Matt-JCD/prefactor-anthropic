@@ -1,4 +1,5 @@
 import type { PrefactorAnthropicConfig } from './types.js';
+import { secureLogger } from './secure-logger.js';
 
 export function extractAgentInfo(config?: PrefactorAnthropicConfig) {
   if (!config) return undefined;
@@ -27,7 +28,7 @@ export function wrapWithFallback<T>(
   try {
     return fn();
   } catch (e) {
-    console.error(`[Prefactor] Failed to wrap ${operationName} call, falling back to original:`, e);
+    secureLogger.error(`[Prefactor] Failed to wrap ${operationName} call, falling back to original:`, e);
     return fallback();
   }
 }

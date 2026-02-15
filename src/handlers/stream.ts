@@ -7,6 +7,7 @@ import type { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream';
 import { extractTokenUsage } from '../token-usage.js';
 import type { PrefactorAnthropicConfig } from '../types.js';
 import { createSpan, buildOutputs, createSpanEnder } from './utils.js';
+import { secureLogger } from '../secure-logger.js';
 
 type MessageStreamParams = MessageCreateParams;
 
@@ -29,8 +30,12 @@ export function handleMessageStream(
         tokenUsage: extractTokenUsage(message),
       });
     } catch (error) {
-      console.error('[Prefactor] Failed to extract token usage from stream:', error);
-      endSpan({});
+      secureLogger.error('[Prefactor] Failed to extract token usage from stream:', error);
+      try {
+        endSpan({});
+      } catch (endSpanError) {
+        secureLogger.error('[Prefactor] Critical: Failed to end span even without data:', endSpanError);
+      }
     }
   });
 

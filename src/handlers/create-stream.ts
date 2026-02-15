@@ -11,6 +11,7 @@ import type { APIPromise } from '@anthropic-ai/sdk';
 import { extractStreamingTokenUsage } from '../token-usage.js';
 import type { PrefactorAnthropicConfig } from '../types.js';
 import { createSpan, createSpanEnder } from './utils.js';
+import { secureLogger } from '../secure-logger.js';
 
 type Stream<T> = AsyncIterable<T>;
 
@@ -38,12 +39,20 @@ function createStreamWrapper(
         yield event;
       }
 
-      endSpan({
-        outputs: { stop_reason: stopReason },
-        tokenUsage: extractStreamingTokenUsage(initialUsage, deltaUsage) ?? undefined,
-      });
+      try {
+        endSpan({
+          outputs: { stop_reason: stopReason },
+          tokenUsage: extractStreamingTokenUsage(initialUsage, deltaUsage) ?? undefined,
+        });
+      } catch (endSpanError) {
+        secureLogger.error('[Prefactor] Failed to end span on stream completion:', endSpanError);
+      }
     } catch (error) {
-      endSpan({ error: error as Error });
+      try {
+        endSpan({ error: error as Error });
+      } catch (endSpanError) {
+        secureLogger.error('[Prefactor] Failed to end span on stream error:', endSpanError);
+      }
       throw error;
     }
   };
@@ -80,7 +89,7 @@ export function handleStreamingCreate(
       try {
         tracer.endSpan(span, { error: error as Error });
       } catch (endSpanError) {
-        console.error('[Prefactor] Failed to end span on stream error:', endSpanError);
+        secureLogger.error('[Prefactor] Failed to end span on stream error:', endSpanError);
       }
     }
   });
