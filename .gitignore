@@ -29,3 +29,7 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
+
+# QA Agent
+qa-report.md
+.qa-tmp/
